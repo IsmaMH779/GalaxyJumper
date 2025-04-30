@@ -48,9 +48,31 @@ public class Nave {
         sprite.setRotation(angle - 90);
     }
 
+    public Vector2 getDirection() {
+        // La dirección en la que está mirando la nave calculada en update
+        // rotación visual
+        float angle = sprite.getRotation() + 90;
+        return new Vector2(1, 0).setAngleDeg(angle).nor();
+    }
+
+    public Vector2 getGunTip() {
+        Vector2 direction = getDirection();
+        float x = sprite.getX() + sprite.getWidth() / 2 + direction.x * sprite.getHeight() / 2;
+        float y = sprite.getY() + sprite.getHeight() / 2 + direction.y * sprite.getHeight() / 2;
+        return new Vector2(x, y);
+    }
+
 
     public void draw(SpriteBatch batch) {
         sprite.draw(batch);
+    }
+
+    public float getCenterX() {
+        return sprite.getX() + sprite.getWidth() / 2;
+    }
+
+    public float getCenterY() {
+        return sprite.getY() + sprite.getHeight() / 2;
     }
 
     public void dispose() {
