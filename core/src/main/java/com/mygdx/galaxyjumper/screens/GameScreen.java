@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
@@ -17,6 +18,7 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.mygdx.galaxyjumper.entities.Asteroid;
 import com.mygdx.galaxyjumper.entities.Bullet;
+import com.mygdx.galaxyjumper.entities.Experience;
 import com.mygdx.galaxyjumper.entities.Explosion;
 import com.mygdx.galaxyjumper.entities.Joystick;
 import com.mygdx.galaxyjumper.entities.Nave;
@@ -28,14 +30,25 @@ public class GameScreen implements Screen {
 
     // font
     private BitmapFont customFont;
+    private BitmapFont defaultFont;
 
     // vida
-    private Texture lifeTexture;
-    private int lives = 3;
+    private Texture lifeIcon;
+    private int lives;
 
-    // utils del juego
-    private float gameOverTimer = 0;
+    // game utils
     private boolean isGameOver = false;
+    private float gameOverTimer = 0f;
+    private static final float GAME_OVER_DURATION = 2f;
+
+    // experiencia
+    // Textura y array para las monedas
+    private Texture xpTexture;
+    private Array<Experience> xpList;
+
+    // Contador de experiencia
+    private int xpCollected = 0;
+
 
     // gameplay
     private OrthographicCamera camera;
@@ -58,7 +71,6 @@ public class GameScreen implements Screen {
     private float shootTimer = 0;
 
     // asteroide
-
     private Array<Asteroid> asteroids;
     private Texture asteroidTexture;
     private float asteroidTimer = 0;
@@ -76,14 +88,17 @@ public class GameScreen implements Screen {
         // cargar la fuente personalizada
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("font/kenvector_future_thin.ttf"));
         FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
-        parameter.size = 28; // Tamaño de fuente
+        parameter.size = 25;
         parameter.color = Color.WHITE;
         customFont = generator.generateFont(parameter);
+        // tras generator.dispose();
+        defaultFont = new BitmapFont();
+
         generator.dispose();
 
-        // textura de la vida
-
-        lifeTexture = new Texture("images/playerShip1_blue.png");
+        // inicializar vida
+        lives = 3;
+        lifeIcon = new Texture("images/playerShip1_blue.png");
 
         // background
         backgroundTexture = new Texture("backgrounds/blue.png");
@@ -94,6 +109,10 @@ public class GameScreen implements Screen {
             (int) VIRTUAL_WIDTH,
             (int) VIRTUAL_HEIGHT
         );
+
+        // experience
+        xpTexture = new Texture("images/Effects/star3.png");
+        xpList = new Array<>();
 
         //nave
         nave = new Nave(new Texture("images/playerShip1_blue.png"), VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 200, viewport);
@@ -113,7 +132,6 @@ public class GameScreen implements Screen {
         asteroidTexture = new Texture("images/Meteors/meteorBrown_big1.png"); // ajusta la ruta
         asteroids = new Array<>();
 
-
         inputHandler = new InputHandler(joystick, viewport);
         Gdx.input.setInputProcessor(inputHandler);
 
@@ -126,6 +144,27 @@ public class GameScreen implements Screen {
         // Limpiar pantalla
         Gdx.gl.glClearColor(0, 0, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        if (isGameOver) {
+            // Incrementa el temporizador
+            gameOverTimer += delta;
+
+            // Dibuja "Game Over" centrado
+            String text = "GAME OVER";
+            GlyphLayout layout = new GlyphLayout(customFont, text);
+            float x = (viewport.getWorldWidth() - layout.width) / 2;
+            float y = (viewport.getWorldHeight() + layout.height) / 2;
+            batch.begin();
+            customFont.draw(batch, layout, x, y);
+            batch.end();
+
+            // Tras la duración, reinicia la partida
+            if (gameOverTimer >= GAME_OVER_DURATION) {
+                resetGame();
+                isGameOver = false;
+            }
+            return;
+        }
 
         // Actualizar lógica
         nave.update(delta, joystick.getDirection());
@@ -162,23 +201,6 @@ public class GameScreen implements Screen {
         // Dibujar todo
         batch.begin();
 
-        // terminar el juego
-        if (isGameOver) {
-            customFont.draw(batch, "GAME OVER", viewport.getWorldWidth()/2 - 100, viewport.getWorldHeight()/2);
-
-            gameOverTimer -= delta;
-            if (gameOverTimer <= 0) {
-                resetGame();
-            }
-        }
-
-        // Dibujar las vidas (x3 sprite sprite sprite)
-        customFont.draw(batch, "x" + lives, 10, viewport.getWorldHeight() - 10);
-
-        for (int i = 0; i < lives; i++) {
-            batch.draw(lifeTexture, 40 + i * 30, viewport.getWorldHeight() - 35, 25, 25);
-        }
-
         // Fondo en mosaico
         float textureWidth = backgroundTexture.getWidth();
         float textureHeight = backgroundTexture.getHeight();
@@ -188,6 +210,31 @@ public class GameScreen implements Screen {
                 batch.draw(backgroundTexture, x, y);
             }
         }
+
+        // Mostrar vidas: "x3"
+        defaultFont.draw(batch, "x", 20, viewport.getWorldHeight() - 10);
+        customFont.draw(batch, String.valueOf(lives),
+            36, viewport.getWorldHeight() - 10);
+        // Dibujar iconos de vida
+
+        for (int i = 0; i < lives; i++) {
+            batch.draw(lifeIcon,
+                60 + i * (25 + 5),
+                viewport.getWorldHeight() - 30,
+                25,
+                20);
+        }
+
+        // Mostrar Experiencia
+        String s = "Coins: " + xpCollected;
+        BitmapFont font = defaultFont;  // o customFont
+        GlyphLayout layout = new GlyphLayout(font, s);
+
+        // coordenadas: margen 20px desde borde derecho y superior
+        float x = viewport.getWorldWidth() - layout.width - 20;
+        float y = viewport.getWorldHeight() - 20;
+        font.draw(batch, layout, x, y);
+
 
         // Dibujar disparos
         for (Bullet bullet : bullets) {
@@ -252,24 +299,37 @@ public class GameScreen implements Screen {
 
         for(int i = asteroids.size - 1; i >= 0; i--) {
             Asteroid asteroid = asteroids.get(i);
-
             for(int j = bullets.size - 1; j >= 0; j--) {
                 if(asteroid.getBounds().overlaps(bullets.get(j).getBounds())) {
-                    lives--;
                     // Crear explosión en la posición del asteroide
                     explosions.add(new Explosion(
                         new Vector2(asteroid.getBounds().x + asteroid.getBounds().width/2,
                             asteroid.getBounds().y + asteroid.getBounds().height/2)
                     ));
-
                     asteroids.removeIndex(i);
                     bullets.removeIndex(j);
 
-                    if (lives <= 0) {
-                        isGameOver = true;
-                        gameOverTimer = 3; // 3 segundos para reiniciar
-                    }
+                    // posición de la moneda: centro del asteroide
+                    float coinX = asteroid.getBounds().x + asteroid.getBounds().width / 2 - 16;
+                    float coinY = asteroid.getBounds().y + asteroid.getBounds().height / 2 - 16;
+                    xpList.add(new Experience(xpTexture, coinX, coinY));
+
                     break;
+                }
+            }
+            // si el asteroide choca con la nave
+            if (asteroid.getBounds().overlaps(nave.getSprite().getBoundingRectangle())) {
+                lives = Math.max(0, lives - 1);
+                // mostrar la explosion
+                explosions.add(new Explosion(
+                    new Vector2(asteroid.getBounds().x + asteroid.getBounds().width/2,
+                        asteroid.getBounds().y + asteroid.getBounds().height/2)
+                ));
+
+                asteroids.removeIndex(i);
+                if (lives == 0 && !isGameOver) {
+                    isGameOver = true;
+                    gameOverTimer = 0f;
                 }
             }
         }
@@ -278,12 +338,25 @@ public class GameScreen implements Screen {
             explosion.draw(batch);
         }
 
+        for (int i = xpList.size - 1; i >= 0; i--) {
+            Experience xp = xpList.get(i);
+            xp.update(delta);
+            // si la moneda sale de pantalla, elimínala
+            if (xp.getBounds().y + xp.getBounds().height < 0) {
+                xpList.removeIndex(i);
+            }
+        }
+
+        // renderizar todas las monedas
+        for (Experience c : xpList) {
+            c.draw(batch);
+        }
+
         batch.end();
     }
 
     private void resetGame() {
         lives = 3;
-        isGameOver = false;
         bullets.clear();
         asteroids.clear();
         explosions.clear();

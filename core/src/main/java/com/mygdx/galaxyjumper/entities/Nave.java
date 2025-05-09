@@ -74,6 +74,13 @@ public class Nave {
     public float getCenterY() {
         return sprite.getY() + sprite.getHeight() / 2;
     }
+    public Sprite getSprite() {
+        return sprite;
+    }
+
+    public Rectangle getBounds() {
+        return sprite.getBoundingRectangle();
+    }
 
     public void dispose() {
         texture.dispose();
