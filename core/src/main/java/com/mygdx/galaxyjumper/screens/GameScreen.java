@@ -76,6 +76,21 @@ public class GameScreen implements Screen {
     private float asteroidTimer = 0;
     private float asteroidSpawnInterval = 2f;
 
+    // Variables para controlar la progresión
+    private float gameTimer = 0f;
+    // Intervalo inicial de aparición
+    private float initialSpawnInterval = 1f;
+    // Mínimo tiempo entre oleadas
+    private float minSpawnInterval = 0.5f;
+    // Asteroides por oleada inicial
+    private int baseAsteroidsPerWave = 1;
+    // Máximo de asteroides por oleada
+    private int maxAsteroidsActive = 3;
+    // Cantidad actual de asteroides por oleada
+    private int currentWaveSize = 1;
+    // Puntos necesarios para subir dificultad
+    private static final int XP_THRESHOLD = 10;
+
     // explosiones
     private Array<Explosion> explosions;
 
@@ -144,6 +159,7 @@ public class GameScreen implements Screen {
         // Limpiar pantalla
         Gdx.gl.glClearColor(0, 0, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        gameTimer += delta;
 
         if (isGameOver) {
             // Incrementa el temporizador
@@ -226,7 +242,7 @@ public class GameScreen implements Screen {
         }
 
         // Mostrar Experiencia
-        String s = "Coins: " + xpCollected;
+        String s = "Stars: " + xpCollected;
         BitmapFont font = defaultFont;  // o customFont
         GlyphLayout layout = new GlyphLayout(font, s);
 
@@ -248,34 +264,43 @@ public class GameScreen implements Screen {
         // Dibujar asteroides
 
         asteroidTimer += delta;
-        if (asteroidTimer >= asteroidSpawnInterval) {
+
+        // Calcular intervalo dinámico (disminuye con el tiempo)
+        float currentSpawnInterval = MathUtils.clamp(
+            initialSpawnInterval - (gameTimer * 0.03f), // Ajusta 0.03 para velocidad de progresión
+            minSpawnInterval,
+            initialSpawnInterval
+        );
+
+        // Calcular cantidad de asteroides por oleada
+        currentWaveSize = (xpCollected >= XP_THRESHOLD) ? 2 : 1;
+
+        if (asteroidTimer >= currentSpawnInterval) {
             asteroidTimer = 0;
 
-            // Posición aleatoria fuera del borde
-            Vector2 spawnPos = new Vector2();
-            float margin = 50;
-            int edge = MathUtils.random(3); // 0=top, 1=right, 2=bottom, 3=left
+            // Calcula cuántos podemos spawnear sin superar el máximo
+            int remainingSlots = maxAsteroidsActive - asteroids.size;
+            if(remainingSlots > 0) {
+                int asteroidsToSpawn = Math.min(currentWaveSize, remainingSlots);
 
-            switch (edge) {
-                case 0: // Top
-                    spawnPos.set(MathUtils.random(viewport.getWorldWidth()), viewport.getWorldHeight() + margin);
-                    break;
-                case 1: // Right
-                    spawnPos.set(viewport.getWorldWidth() + margin, MathUtils.random(viewport.getWorldHeight()));
-                    break;
-                case 2: // Bottom
-                    spawnPos.set(MathUtils.random(viewport.getWorldWidth()), -margin);
-                    break;
-                case 3: // Left
-                    spawnPos.set(-margin, MathUtils.random(viewport.getWorldHeight()));
-                    break;
+                for (int i = 0; i < asteroidsToSpawn; i++) {
+                    Vector2 spawnPos = getRandomSpawnPosition();
+                    Vector2 targetPos = new Vector2(
+                        nave.getCenterX() + MathUtils.random(-50f, 50f),
+                        nave.getCenterY() + MathUtils.random(-50f, 50f)
+                    );
+
+                    asteroids.add(new Asteroid(
+                        asteroidTexture,
+                        spawnPos,
+                        targetPos,
+                        200f,
+                        viewport
+                    ));
+                }
             }
-
-            // Posición de la nave actual
-            Vector2 targetPos = new Vector2(nave.getCenterX(), nave.getCenterY());
-
-            asteroids.add(new Asteroid(asteroidTexture, spawnPos, targetPos, 200, viewport));
         }
+
 
         // actualizar y dibujar asteroides
         for (int i = asteroids.size - 1; i >= 0; i--) {
@@ -312,7 +337,12 @@ public class GameScreen implements Screen {
                     // posición de la moneda: centro del asteroide
                     float coinX = asteroid.getBounds().x + asteroid.getBounds().width / 2 - 16;
                     float coinY = asteroid.getBounds().y + asteroid.getBounds().height / 2 - 16;
-                    xpList.add(new Experience(xpTexture, coinX, coinY));
+
+
+                    Experience xp = new Experience(xpTexture, coinX, coinY);
+                    xp.getSprite().setSize(20, 20);
+                    xpList.add(xp);
+
 
                     break;
                 }
@@ -341,8 +371,16 @@ public class GameScreen implements Screen {
         for (int i = xpList.size - 1; i >= 0; i--) {
             Experience xp = xpList.get(i);
             xp.update(delta);
-            // si la moneda sale de pantalla, elimínala
-            if (xp.getBounds().y + xp.getBounds().height < 0) {
+
+            // Verificar colisión con la nave
+            if (xp.getBounds().overlaps(nave.getBounds())) {
+                xpCollected++;
+                xpList.removeIndex(i);
+                continue;
+            }
+
+            // Eliminar si expira
+            if (xp.isExpired()) {
                 xpList.removeIndex(i);
             }
         }
@@ -352,15 +390,60 @@ public class GameScreen implements Screen {
             c.draw(batch);
         }
 
+        // Añade en el HUD para mostrar el progreso
+        String progressText = (xpCollected < XP_THRESHOLD) ?
+            "Siguiente nivel: " + (XP_THRESHOLD - xpCollected) :
+            "¡Nivel máximo!";
+        GlyphLayout progressLayout = new GlyphLayout(customFont, progressText);
+        float progressX = viewport.getWorldWidth() - progressLayout.width - 20;
+        float progressY = viewport.getWorldHeight() - 90;
+        customFont.draw(batch, progressText, progressX, progressY);
+
         batch.end();
+    }
+
+    // método para generar posiciones aleatorias
+    private Vector2 getRandomSpawnPosition() {
+        float margin = 100f;
+        int edge = MathUtils.random(3); // 0=top, 1=right, 2=bottom, 3=left
+
+        switch (edge) {
+            case 0: // Top
+                return new Vector2(
+                    MathUtils.random(-margin, viewport.getWorldWidth() + margin),
+                    viewport.getWorldHeight() + margin
+                );
+            case 1: // Right
+                return new Vector2(
+                    viewport.getWorldWidth() + margin,
+                    MathUtils.random(-margin, viewport.getWorldHeight() + margin)
+                );
+            case 2: // Bottom
+                return new Vector2(
+                    MathUtils.random(-margin, viewport.getWorldWidth() + margin),
+                    -margin
+                );
+            default: // Left
+                return new Vector2(
+                    -margin,
+                    MathUtils.random(-margin, viewport.getWorldHeight() + margin)
+                );
+        }
     }
 
     private void resetGame() {
         lives = 3;
+        // Limpiar experiencia al reiniciar
+        xpList.clear();
+        // Resetear contador
+        xpCollected = 0;
         bullets.clear();
         asteroids.clear();
         explosions.clear();
         nave = new Nave(new Texture("images/playerShip1_blue.png"), VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 200, viewport);
+        gameTimer = 0f;
+        currentWaveSize = 1;
+        xpCollected = 0;
     }
 
 

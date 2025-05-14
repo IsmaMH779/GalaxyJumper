@@ -34,8 +34,11 @@ public class Asteroid {
     }
 
     public boolean isOutOfScreen() {
-        return position.x + width < 0 || position.x > viewport.getWorldWidth() ||
-            position.y + height < 0 || position.y > viewport.getWorldHeight();
+        float margin = 200f;
+        return position.x + width < -margin ||
+            position.x > viewport.getWorldWidth() + margin ||
+            position.y + height < -margin ||
+            position.y > viewport.getWorldHeight() + margin;
     }
 
     public Rectangle getBounds() {
