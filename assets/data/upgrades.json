@@ -1,0 +1,28 @@
+[
+  {
+    "id": "health",
+    "name": "Escudo Reforzado",
+    "description": "+1 Punto de Vida",
+    "type": "health"
+  },
+  {
+    "id": "speed",
+    "name": "Motores Mejorados",
+    "description": "+15% Velocidad",
+    "type": "speed",
+    "value": 1.15
+  },
+  {
+    "id": "fire_rate",
+    "name": "Cañón Rápido",
+    "description": "-25% Tiempo entre disparos",
+    "type": "fire_rate",
+    "value": 0.75
+  },
+  {
+    "id": "multishot",
+    "name": "Doble Cañón",
+    "description": "Dispara 2 proyectiles",
+    "type": "multishot"
+  }
+]

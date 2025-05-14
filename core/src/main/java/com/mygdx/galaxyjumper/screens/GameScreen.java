@@ -14,6 +14,7 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Json;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.mygdx.galaxyjumper.entities.Asteroid;
@@ -22,6 +23,7 @@ import com.mygdx.galaxyjumper.entities.Experience;
 import com.mygdx.galaxyjumper.entities.Explosion;
 import com.mygdx.galaxyjumper.entities.Joystick;
 import com.mygdx.galaxyjumper.entities.Nave;
+import com.mygdx.galaxyjumper.entities.Upgrade;
 import com.mygdx.galaxyjumper.utils.InputHandler;
 
 public class GameScreen implements Screen {
@@ -91,6 +93,15 @@ public class GameScreen implements Screen {
     // Puntos necesarios para subir dificultad
     private static final int XP_THRESHOLD = 10;
 
+    // Upgrades
+    private boolean inShop = false;
+    private Array<Upgrade> availableUpgrades = new Array<>();
+    private Array<Upgrade> currentSelection = new Array<>();
+    private int selectedUpgrade = -1;
+    private Json json = new Json();
+    private BitmapFont shopFont;
+    private int lastShopXP = -1;
+
     // explosiones
     private Array<Explosion> explosions;
 
@@ -106,8 +117,11 @@ public class GameScreen implements Screen {
         parameter.size = 25;
         parameter.color = Color.WHITE;
         customFont = generator.generateFont(parameter);
-        // tras generator.dispose();
         defaultFont = new BitmapFont();
+
+        // fuente tienda
+        parameter.size = 35;
+        shopFont = generator.generateFont(parameter);
 
         generator.dispose();
 
@@ -152,6 +166,9 @@ public class GameScreen implements Screen {
 
         // explosiones
         explosions = new Array<>();
+
+        // upgrade
+        availableUpgrades = json.fromJson(Array.class, Upgrade.class, Gdx.files.internal("data/upgrades.json"));
     }
 
     @Override
@@ -179,6 +196,11 @@ public class GameScreen implements Screen {
                 resetGame();
                 isGameOver = false;
             }
+            return;
+        }
+        // entrar en la tienda
+        if (inShop) {
+            renderShop(delta);
             return;
         }
 
@@ -242,7 +264,7 @@ public class GameScreen implements Screen {
         }
 
         // Mostrar Experiencia
-        String s = "Stars: " + xpCollected;
+        String s = "IsmaCoins: " + xpCollected;
         BitmapFont font = defaultFont;  // o customFont
         GlyphLayout layout = new GlyphLayout(font, s);
 
@@ -274,6 +296,10 @@ public class GameScreen implements Screen {
 
         // Calcular cantidad de asteroides por oleada
         currentWaveSize = (xpCollected >= XP_THRESHOLD) ? 2 : 1;
+
+        if (xpCollected >= lastShopXP + XP_THRESHOLD && !inShop && xpCollected > 0) {
+            openShop();
+        }
 
         if (asteroidTimer >= currentSpawnInterval) {
             asteroidTimer = 0;
@@ -391,9 +417,7 @@ public class GameScreen implements Screen {
         }
 
         // Añade en el HUD para mostrar el progreso
-        String progressText = (xpCollected < XP_THRESHOLD) ?
-            "Siguiente nivel: " + (XP_THRESHOLD - xpCollected) :
-            "¡Nivel máximo!";
+        String progressText = "Próxima mejora: " + (XP_THRESHOLD - (xpCollected % XP_THRESHOLD));
         GlyphLayout progressLayout = new GlyphLayout(customFont, progressText);
         float progressX = viewport.getWorldWidth() - progressLayout.width - 20;
         float progressY = viewport.getWorldHeight() - 90;
@@ -431,6 +455,101 @@ public class GameScreen implements Screen {
         }
     }
 
+    // abrir tienda
+    private void openShop() {
+        inShop = true;
+        lastShopXP = xpCollected;
+        currentSelection.clear();
+
+        // Seleccionar 3 mejoras aleatorias
+        Array<Upgrade> temp = new Array<>(availableUpgrades);
+        temp.shuffle();
+        for (int i = 0; i < 3 && i < temp.size; i++) {
+            currentSelection.add(temp.get(i));
+        }
+    }
+
+    private void renderShop(float delta) {
+        // Fondo semitransparente
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        batch.begin();
+        batch.setColor(0, 0, 0, 0.7f);
+        batch.draw(backgroundTexture, 0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
+        batch.setColor(Color.WHITE);
+
+        // Título
+        GlyphLayout layout = new GlyphLayout(shopFont, "¡ELIGE TU MEJORA!");
+        shopFont.draw(batch, layout, viewport.getWorldWidth()/2 - layout.width/2, viewport.getWorldHeight() - 50);
+
+        // Dibujar opciones
+        float startY = viewport.getWorldHeight()/2 + 100;
+        for (int i = 0; i < currentSelection.size; i++) {
+            Upgrade upgrade = currentSelection.get(i);
+
+            // Marco de selección
+            if (selectedUpgrade == i) {
+                batch.setColor(Color.GOLD);
+                batch.draw(lifeIcon, 100, startY - 100*i - 50, 200, 100);
+            }
+
+            // Texto
+            shopFont.setColor(Color.WHITE);
+            shopFont.draw(batch, upgrade.name, 150, startY - 100*i);
+            shopFont.setColor(Color.LIGHT_GRAY);
+            shopFont.draw(batch, upgrade.description, 150, startY - 100*i - 40);
+        }
+
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        // Manejar input
+        if (Gdx.input.justTouched()) {
+            Vector2 touchPos = viewport.unproject(new Vector2(Gdx.input.getX(), Gdx.input.getY()));
+
+            for (int i = 0; i < currentSelection.size; i++) {
+                if (touchPos.y > startY - 100*i - 100 && touchPos.y < startY - 100*i) {
+                    applyUpgrade(currentSelection.get(i));
+                    inShop = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    private void applyUpgrade(Upgrade upgrade) {
+        switch (upgrade.type) {
+            case "health":
+                lives = Math.min(5, lives + 1); // Máximo 5 vidas
+                break;
+
+            case "speed":
+                nave.setSpeed(nave.getSpeed() * 1.15f); // +15% velocidad
+                break;
+
+            case "fire_rate":
+                shootInterval *= 0.75f; // -25% tiempo entre disparos
+                break;
+
+            case "multishot":
+                // Implementar disparo doble
+                bullets.add(new Bullet(
+                    bulletTexture,
+                    nave.getGunTip().x - 10, // Offset izquierdo
+                    nave.getGunTip().y,
+                    nave.getDirection().cpy(),
+                    bulletSpeed
+                ));
+                bullets.add(new Bullet(
+                    bulletTexture,
+                    nave.getGunTip().x + 10, // Offset derecho
+                    nave.getGunTip().y,
+                    nave.getDirection().cpy(),
+                    bulletSpeed
+                ));
+                break;
+        }
+    }
+
     private void resetGame() {
         lives = 3;
         // Limpiar experiencia al reiniciar
@@ -443,7 +562,11 @@ public class GameScreen implements Screen {
         nave = new Nave(new Texture("images/playerShip1_blue.png"), VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 200, viewport);
         gameTimer = 0f;
         currentWaveSize = 1;
-        xpCollected = 0;
+        // Velocidad inicial
+        nave.setSpeed(200);
+        // Intervalo inicial
+        shootInterval = 0.8f;
+        lastShopXP = -1;
     }
 
 
