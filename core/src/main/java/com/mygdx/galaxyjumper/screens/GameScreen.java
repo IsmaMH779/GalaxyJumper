@@ -1,6 +1,7 @@
 package com.mygdx.galaxyjumper.screens;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -385,6 +386,7 @@ public class GameScreen implements Screen {
                 asteroids.removeIndex(i);
                 if (lives == 0 && !isGameOver) {
                     isGameOver = true;
+                    saveHighScore();
                     gameOverTimer = 0f;
                 }
             }
@@ -547,6 +549,16 @@ public class GameScreen implements Screen {
                     bulletSpeed
                 ));
                 break;
+        }
+    }
+
+    // guardar el score mas alto
+    private void saveHighScore() {
+        Preferences prefs = Gdx.app.getPreferences("GalaxyJumper");
+        int currentHigh = prefs.getInteger("highScore", 0);
+        if(xpCollected > currentHigh) {
+            prefs.putInteger("highScore", xpCollected);
+            prefs.flush();
         }
     }
 
