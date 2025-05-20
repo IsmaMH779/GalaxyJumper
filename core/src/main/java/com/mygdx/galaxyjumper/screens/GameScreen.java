@@ -3,6 +3,7 @@ package com.mygdx.galaxyjumper.screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -48,10 +49,10 @@ public class GameScreen implements Screen {
     // Textura y array para las monedas
     private Texture xpTexture;
     private Array<Experience> xpList;
+    private Sound xpCollectSound;
 
     // Contador de experiencia
     private int xpCollected = 0;
-
 
     // gameplay
     private OrthographicCamera camera;
@@ -64,11 +65,13 @@ public class GameScreen implements Screen {
     private TextureRegion backgroundRegion;
 
     // balas
-
     private Texture bulletTexture;
     private Array<Bullet> bullets;
-    // tiempo entre disparos (en segundos)
+    // tiempo entre disparos
     private float shootInterval = 0.8f;
+    private Sound shootSound;
+    private Sound asteroidExplosionSound;
+
     // Velocidad de la bala
     private float bulletSpeed = 300f;
     private float shootTimer = 0;
@@ -105,6 +108,7 @@ public class GameScreen implements Screen {
 
     // explosiones
     private Array<Explosion> explosions;
+    private Sound shipDamageSound;
 
     @Override
     public void show() {
@@ -143,6 +147,7 @@ public class GameScreen implements Screen {
         // experience
         xpTexture = new Texture("images/Effects/star3.png");
         xpList = new Array<>();
+        xpCollectSound = Gdx.audio.newSound(Gdx.files.internal("sounds/coin_colection.mp3"));
 
         //nave
         nave = new Nave(new Texture("images/playerShip1_blue.png"), VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 200, viewport);
@@ -157,6 +162,8 @@ public class GameScreen implements Screen {
         // balas
         bulletTexture = new Texture("images/Lasers/laserBlue03.png");
         bullets = new Array<>();
+        shootSound = Gdx.audio.newSound(Gdx.files.internal("sounds/sfx_laser1.ogg"));
+        asteroidExplosionSound = Gdx.audio.newSound(Gdx.files.internal("sounds/bulet_explosion.mp3"));
 
         // asteroide
         asteroidTexture = new Texture("images/Meteors/meteorBrown_big1.png"); // ajusta la ruta
@@ -170,6 +177,7 @@ public class GameScreen implements Screen {
 
         // upgrade
         availableUpgrades = json.fromJson(Array.class, Upgrade.class, Gdx.files.internal("data/upgrades.json"));
+        shipDamageSound = Gdx.audio.newSound(Gdx.files.internal("sounds/asteroid_explosion.mp3"));
     }
 
     @Override
@@ -212,6 +220,7 @@ public class GameScreen implements Screen {
         shootTimer += delta;
         if (shootTimer >= shootInterval) {
             shootTimer = 0;
+            shootSound.play(0.5f);
 
             Vector2 bulletDirection = nave.getDirection();
             Vector2 bulletPosition = nave.getGunTip();
@@ -358,6 +367,9 @@ public class GameScreen implements Screen {
                         new Vector2(asteroid.getBounds().x + asteroid.getBounds().width/2,
                             asteroid.getBounds().y + asteroid.getBounds().height/2)
                     ));
+
+                    asteroidExplosionSound.play(0.6f);
+
                     asteroids.removeIndex(i);
                     bullets.removeIndex(j);
 
@@ -376,18 +388,23 @@ public class GameScreen implements Screen {
             }
             // si el asteroide choca con la nave
             if (asteroid.getBounds().overlaps(nave.getSprite().getBoundingRectangle())) {
-                lives = Math.max(0, lives - 1);
-                // mostrar la explosion
-                explosions.add(new Explosion(
-                    new Vector2(asteroid.getBounds().x + asteroid.getBounds().width/2,
-                        asteroid.getBounds().y + asteroid.getBounds().height/2)
-                ));
+                if (!nave.isImmune()) {
+                    lives = Math.max(0, lives - 1);
+                    nave.activateImmunity(2f); // 2 segundos de inmunidad
 
-                asteroids.removeIndex(i);
-                if (lives == 0 && !isGameOver) {
-                    isGameOver = true;
-                    saveHighScore();
-                    gameOverTimer = 0f;
+                    explosions.add(new Explosion(
+                        new Vector2(asteroid.getBounds().x + asteroid.getBounds().width/2,
+                            asteroid.getBounds().y + asteroid.getBounds().height/2)
+                    ));
+                    shipDamageSound.play(1.0f, MathUtils.random(0.9f, 1.1f), 0.0f);
+
+                    if (lives == 0 && !isGameOver) {
+                        isGameOver = true;
+                        saveHighScore();
+                        gameOverTimer = 0f;
+                    }
+
+                    asteroids.removeIndex(i);
                 }
             }
         }
@@ -404,6 +421,7 @@ public class GameScreen implements Screen {
             if (xp.getBounds().overlaps(nave.getBounds())) {
                 xpCollected++;
                 xpList.removeIndex(i);
+                xpCollectSound.play(0.8f);
                 continue;
             }
 
@@ -579,6 +597,9 @@ public class GameScreen implements Screen {
         // Intervalo inicial
         shootInterval = 0.8f;
         lastShopXP = -1;
+        // Resetear inmunidad
+        nave.activateImmunity(0f);
+        nave.getSprite().setAlpha(1.0f);
     }
 
 
@@ -606,5 +627,8 @@ public class GameScreen implements Screen {
 
     @Override
     public void dispose() {
+        asteroidExplosionSound.dispose();
+        shipDamageSound.dispose();
+        xpCollectSound.dispose();
     }
 }

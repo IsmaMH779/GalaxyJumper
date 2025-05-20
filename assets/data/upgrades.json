@@ -1,7 +1,7 @@
 [
   {
     "id": "health",
-    "name": "Escudo Reforzado",
+    "name": "Vitalidad",
     "description": "+1 Punto de Vida",
     "type": "health"
   },
@@ -18,11 +18,5 @@
     "description": "-25% Tiempo entre disparos",
     "type": "fire_rate",
     "value": 0.75
-  },
-  {
-    "id": "multishot",
-    "name": "Doble Cañón",
-    "description": "Dispara 2 proyectiles",
-    "type": "multishot"
   }
 ]

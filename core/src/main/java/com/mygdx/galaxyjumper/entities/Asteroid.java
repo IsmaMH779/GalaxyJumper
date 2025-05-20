@@ -14,7 +14,7 @@ public class Asteroid {
     private float width, height;
     private Viewport viewport;
 
-    public Asteroid(Texture texture, Vector2 spawnPosition, Vector2 targetPosition, float speed, Viewport viewport) {
+    public Asteroid(Texture texture, Vector2 spawnPosition, Vector2 targetPosition, float speed, Viewport viewport ) {
         this.texture = texture;
         this.position = new Vector2(spawnPosition);
         this.direction = new Vector2(targetPosition).sub(spawnPosition).nor();

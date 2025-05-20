@@ -3,6 +3,7 @@ package com.mygdx.galaxyjumper.entities;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -12,6 +13,9 @@ public class Nave {
     private Texture texture;
     private float speed;
     private Viewport viewport;
+    private float immunityTimer = 0f;
+    private boolean isImmune = false;
+    private float blinkTimer = 0f;
 
     public Nave(Texture texture, float startX, float startY, float speed, Viewport viewport) {
         this.texture = texture;
@@ -26,6 +30,21 @@ public class Nave {
 
 
     public void update(float delta, Vector2 direction) {
+        if (isImmune) {
+            immunityTimer -= delta;
+            blinkTimer += delta * 10;
+
+            // Efecto de parpadeo usando función
+            float alpha = (MathUtils.sin(blinkTimer) + 1) / 2;
+            sprite.setAlpha(alpha);
+
+            if (immunityTimer <= 0) {
+                isImmune = false;
+                sprite.setAlpha(1.0f);
+            }
+        }
+
+
         if (direction.isZero()) return;
 
         float moveX = direction.x * speed * delta;
@@ -62,6 +81,15 @@ public class Nave {
         return new Vector2(x, y);
     }
 
+    public void activateImmunity(float duration) {
+        isImmune = true;
+        immunityTimer = duration;
+        blinkTimer = 0f;
+    }
+
+    public boolean isImmune() {
+        return isImmune;
+    }
 
     public void draw(SpriteBatch batch) {
         sprite.draw(batch);
