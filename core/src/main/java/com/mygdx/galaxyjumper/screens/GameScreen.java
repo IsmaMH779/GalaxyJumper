@@ -22,6 +22,7 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 import com.mygdx.galaxyjumper.GalaxyJumper;
 import com.mygdx.galaxyjumper.entities.Asteroid;
 import com.mygdx.galaxyjumper.entities.Bullet;
+import com.mygdx.galaxyjumper.entities.EnemyShip;
 import com.mygdx.galaxyjumper.entities.Experience;
 import com.mygdx.galaxyjumper.entities.Explosion;
 import com.mygdx.galaxyjumper.entities.Joystick;
@@ -113,6 +114,17 @@ public class GameScreen implements Screen {
     private Array<Explosion> explosions;
     private Sound shipDamageSound;
 
+    // enemigo
+
+    private Array<EnemyShip> enemyShips;
+    private Texture enemyShipTexture;
+    private float enemySpawnTimer = 0f;
+    //  segundos entre apariciones
+    private static final float ENEMY_SPAWN_INTERVAL = 15f;
+    private Sound enemyShootSound;
+    private Texture enemyBulletTexture;
+    private Array<Bullet> enemyBullets;
+
     public GameScreen(GalaxyJumper game) {
         this.game = game;
     }
@@ -185,6 +197,13 @@ public class GameScreen implements Screen {
         // upgrade
         availableUpgrades = json.fromJson(Array.class, Upgrade.class, Gdx.files.internal("data/upgrades.json"));
         shipDamageSound = Gdx.audio.newSound(Gdx.files.internal("sounds/asteroid_explosion.mp3"));
+
+        // enemigo
+        enemyShips = new Array<>();
+        enemyShipTexture = new Texture("images/Enemies/enemyBlack1.png"); // Asegúrate de tener esta textura
+        enemyBulletTexture = new Texture("images/Lasers/laserRed03.png");
+        enemyShootSound = Gdx.audio.newSound(Gdx.files.internal("sounds/sfx_laser2.ogg"));
+        enemyBullets = new Array<>();
     }
 
     @Override
@@ -425,9 +444,9 @@ public class GameScreen implements Screen {
             Experience xp = xpList.get(i);
             xp.update(delta);
 
-            // Verificar colisión con la nave
+            //recolectar
             if (xp.getBounds().overlaps(nave.getBounds())) {
-                xpCollected++;
+                xpCollected += xp.getValue();
                 xpList.removeIndex(i);
                 xpCollectSound.play(0.8f);
                 continue;
@@ -439,10 +458,97 @@ public class GameScreen implements Screen {
             }
         }
 
-        // renderizar todas las monedas
-        for (Experience c : xpList) {
-            c.draw(batch);
+        // ENEMIGOS
+        // Actualizar enemigos
+        enemySpawnTimer += delta;
+        if (enemySpawnTimer >= ENEMY_SPAWN_INTERVAL) {
+            enemySpawnTimer = 0;
+            enemyShips.add(new EnemyShip(enemyShipTexture, viewport, nave.getCenterPosition()));
         }
+
+        // Actualizar naves enemigas y sus disparos
+        for (int i = enemyShips.size - 1; i >= 0; i--) {
+            EnemyShip enemy = enemyShips.get(i);
+            Vector2 target = enemy.update(delta, nave.getCenterPosition());
+
+            // Disparar si es necesario
+            if (target != null) {
+                Vector2 direction = new Vector2(
+                    target.x - enemy.getPosition().x,
+                    target.y - enemy.getPosition().y
+                ).nor();
+
+                enemyBullets.add(new Bullet(
+                    enemyBulletTexture,
+                    enemy.getPosition().x + 20,
+                    enemy.getPosition().y + 20,
+                    direction,
+                    200f
+                ));
+                enemyShootSound.play(0.3f);
+            }
+
+            // Colisión con balas del jugador
+            for (int j = bullets.size - 1; j >= 0; j--) {
+                if (enemy.getSprite().getBoundingRectangle().overlaps(bullets.get(j).getBounds())) {
+                    asteroidExplosionSound.play(0.6f);
+                    explosions.add(new Explosion(enemy.getPosition()));
+
+                    // Crear moneda de 4 puntos
+                    Experience xp = new Experience(xpTexture,
+                        enemy.getPosition().x + 20,
+                        enemy.getPosition().y + 20,
+                        4);
+                    xp.getSprite().setSize(30, 30); // Tamaño mayor para diferenciar
+                    xpList.add(xp);
+
+                    enemyShips.removeIndex(i);
+                    bullets.removeIndex(j);
+                    break;
+                }
+            }
+        }
+
+        // Actualizar balas enemigas
+        for (int i = enemyBullets.size - 1; i >= 0; i--) {
+            Bullet bullet = enemyBullets.get(i);
+            bullet.update(delta);
+
+            // Colisión con jugador
+            if (bullet.getBounds().overlaps(nave.getBounds())) {
+                if (!nave.isImmune()) {
+                    lives = Math.max(0, lives - 1);
+                    nave.activateImmunity(2f);
+
+                    // Efectos
+                    explosions.add(new Explosion(nave.getCenterPosition()));
+                    shipDamageSound.play(1.0f, MathUtils.random(0.9f, 1.1f), 0.0f);
+
+                    // Comprobar Game Over
+                    if (lives == 0 && !isGameOver) {
+                        isGameOver = true;
+                        saveHighScore();
+                        gameOverTimer = 0f;
+                    }
+                }
+                enemyBullets.removeIndex(i);
+            }
+
+            // Eliminar balas fuera de pantalla
+            if (bullet.isOutOfScreen(camera, viewport)) {
+                enemyBullets.removeIndex(i);
+            }
+        }
+
+        // Dibujar enemigos y sus balas (DEBE ESTAR DENTRO DEL BATCH.BEGIN/END)
+        for (EnemyShip enemy : enemyShips) {
+            enemy.draw(batch);
+        }
+        for (Bullet bullet : enemyBullets) {
+            bullet.draw(batch);
+        }
+
+
 
         // Añade en el HUD para mostrar el progreso
         String progressText = "Próxima mejora: " + (XP_THRESHOLD - (xpCollected % XP_THRESHOLD));
@@ -450,6 +556,11 @@ public class GameScreen implements Screen {
         float progressX = viewport.getWorldWidth() - progressLayout.width - 20;
         float progressY = viewport.getWorldHeight() - 90;
         customFont.draw(batch, progressText, progressX, progressY);
+
+
+        for (Experience c : xpList) {
+            c.draw(batch);
+        }
 
         batch.end();
     }

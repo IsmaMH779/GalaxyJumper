@@ -10,12 +10,21 @@ public class Experience {
     private float timeAlive;
     private boolean visible = true;
     private float blinkTimer = 0;
+    private int value;
 
     public Experience(Texture tex, float x, float y) {
         sprite = new Sprite(tex);
         sprite.setSize(32, 32);
         sprite.setPosition(x, y);
         timeAlive = 0f;
+        this.value = 1;
+    }
+    public Experience(Texture tex, float x, float y, int value) {
+        sprite = new Sprite(tex);
+        sprite.setSize(32, 32);
+        sprite.setPosition(x, y);
+        timeAlive = 0f;
+        this.value = value;
     }
 
     public void update(float delta) {
@@ -48,6 +57,9 @@ public class Experience {
 
     public Sprite getSprite() {
         return sprite;
+    }
+    public int getValue() {
+        return value;
     }
 
     public void setSprite(Sprite sprite) {
