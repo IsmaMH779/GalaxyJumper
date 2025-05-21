@@ -19,6 +19,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Json;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import com.mygdx.galaxyjumper.GalaxyJumper;
 import com.mygdx.galaxyjumper.entities.Asteroid;
 import com.mygdx.galaxyjumper.entities.Bullet;
 import com.mygdx.galaxyjumper.entities.Experience;
@@ -31,6 +32,8 @@ import com.mygdx.galaxyjumper.utils.InputHandler;
 public class GameScreen implements Screen {
     private static final float VIRTUAL_WIDTH = 800;
     private static final float VIRTUAL_HEIGHT = 480;
+
+    private final GalaxyJumper game;
 
     // font
     private BitmapFont customFont;
@@ -109,6 +112,10 @@ public class GameScreen implements Screen {
     // explosiones
     private Array<Explosion> explosions;
     private Sound shipDamageSound;
+
+    public GameScreen(GalaxyJumper game) {
+        this.game = game;
+    }
 
     @Override
     public void show() {
@@ -202,8 +209,9 @@ public class GameScreen implements Screen {
 
             // Tras la duración, reinicia la partida
             if (gameOverTimer >= GAME_OVER_DURATION) {
-                resetGame();
-                isGameOver = false;
+                game.setScreen(new MainMenuScreen(game));
+                dispose();
+                return;
             }
             return;
         }
