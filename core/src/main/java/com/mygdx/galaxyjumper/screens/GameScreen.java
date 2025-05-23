@@ -326,7 +326,8 @@ public class GameScreen implements Screen {
 
         // Calcular intervalo dinámico (disminuye con el tiempo)
         float currentSpawnInterval = MathUtils.clamp(
-            initialSpawnInterval - (gameTimer * 0.03f), // Ajusta 0.03 para velocidad de progresión
+            // Ajusta 0.03 para velocidad de progresión
+            initialSpawnInterval - (gameTimer * 0.03f),
             minSpawnInterval,
             initialSpawnInterval
         );
@@ -448,7 +449,7 @@ public class GameScreen implements Screen {
             if (xp.getBounds().overlaps(nave.getBounds())) {
                 xpCollected += xp.getValue();
                 xpList.removeIndex(i);
-                xpCollectSound.play(0.8f);
+                xpCollectSound.play(0.2f);
                 continue;
             }
 
@@ -540,14 +541,13 @@ public class GameScreen implements Screen {
             }
         }
 
-        // Dibujar enemigos y sus balas (DEBE ESTAR DENTRO DEL BATCH.BEGIN/END)
+        // Dibujar enemigos y sus balas
         for (EnemyShip enemy : enemyShips) {
             enemy.draw(batch);
         }
         for (Bullet bullet : enemyBullets) {
             bullet.draw(batch);
         }
-
 
 
         // Añade en el HUD para mostrar el progreso
@@ -699,6 +699,7 @@ public class GameScreen implements Screen {
         }
     }
 
+    // reset
     private void resetGame() {
         lives = 3;
         // Limpiar experiencia al reiniciar

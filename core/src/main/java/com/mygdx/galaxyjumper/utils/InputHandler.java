@@ -34,7 +34,7 @@ public class InputHandler implements InputProcessor {
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
         // Convertir coordenadas reales a virtuales
         touchPos.set(screenX, screenY, 0);
-        viewport.unproject(touchPos); // ¡Clave para la adaptación!
+        viewport.unproject(touchPos);
 
         if (!joystick.isVisible()) {
             joystick.setPosition(touchPos.x, touchPos.y, pointer);

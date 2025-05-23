@@ -33,7 +33,7 @@ public class Experience {
         // Lógica de parpadeo
         if (timeAlive >= 4f) {
             blinkTimer += delta;
-            // Intercambiar visibilidad cada 0.166 segundos (3 parpadeos en 1 segundo)
+            // Intercambiar visibilidad cada 0.166 segundos
             if (blinkTimer >= 0.166f) {
                 visible = !visible;
                 blinkTimer = 0;
