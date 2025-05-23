@@ -120,7 +120,7 @@ public class GameScreen implements Screen {
     private Texture enemyShipTexture;
     private float enemySpawnTimer = 0f;
     //  segundos entre apariciones
-    private static final float ENEMY_SPAWN_INTERVAL = 15f;
+    private static final float ENEMY_SPAWN_INTERVAL = 10f;
     private Sound enemyShootSound;
     private Texture enemyBulletTexture;
     private Array<Bullet> enemyBullets;
